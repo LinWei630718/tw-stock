@@ -1698,6 +1698,242 @@ body {
 }
 
 /* ==========================================================================
+   Custom ETF Dashboard Specialized Styles
+   ========================================================================== */
+.etf-control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.etf-categories-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.etf-cat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.etf-cat-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--text-primary);
+  background: rgba(0, 180, 216, 0.08);
+}
+
+.etf-cat-btn.active {
+  background: linear-gradient(135deg, rgba(0, 180, 216, 0.2), rgba(114, 46, 209, 0.2));
+  border-color: var(--color-accent);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(0, 180, 216, 0.3);
+}
+
+.etf-cat-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  font-family: var(--font-mono);
+}
+
+.etf-action-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.etf-add-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 2px 4px 2px 12px;
+  flex: 1;
+  max-width: 380px;
+  transition: all 0.2s ease;
+}
+
+.etf-add-input-wrapper:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(0, 180, 216, 0.2);
+}
+
+.etf-add-input-wrapper input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  width: 100%;
+}
+
+.etf-add-input-wrapper input::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+}
+
+.etf-btn-add {
+  background: var(--color-accent);
+  color: #0b0e14;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.etf-btn-add:hover {
+  background: var(--color-accent-hover);
+}
+
+.etf-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.etf-remove-btn:hover {
+  color: var(--color-up);
+}
+
+.etf-nav-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.etf-nav-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.etf-nav-lbl {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.etf-nav-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.etf-prem-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+}
+
+.prem-badge-deep-disc {
+  color: #52c41a;
+  background: rgba(82, 196, 26, 0.15);
+  border-color: rgba(82, 196, 26, 0.35);
+}
+
+.prem-badge-mild-disc {
+  color: #13c2c2;
+  background: rgba(19, 194, 194, 0.15);
+  border-color: rgba(19, 194, 194, 0.35);
+}
+
+.prem-badge-fair {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.prem-badge-mild-prem {
+  color: #faad14;
+  background: rgba(250, 173, 20, 0.15);
+  border-color: rgba(250, 173, 20, 0.35);
+}
+
+.prem-badge-danger-prem {
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.18);
+  border-color: rgba(255, 77, 79, 0.45);
+  box-shadow: 0 0 10px rgba(255, 77, 79, 0.25);
+}
+
+.etf-units-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 180, 216, 0.04);
+  border: 1px solid rgba(0, 180, 216, 0.15);
+  border-radius: 6px;
+  padding: 5px 10px;
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+
+.etf-unit-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.etf-ref-link {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.etf-ref-link:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+/* ==========================================================================
    Toast Notification System Styles
    ========================================================================== */
 .toast-container {

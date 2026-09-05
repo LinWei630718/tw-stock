@@ -362,6 +362,70 @@ class TestTaiwanStockSystem(unittest.TestCase):
         
         print(f"[Test 10 Passed] 00403A -> {info_00403['name']}, 00405A -> {info_00405['name']}")
 
+    def test_11_etf_dashboard_api(self):
+        """Verify custom ETF dashboard API for MA5/MA20/MA60, MACD, KD, RSI, NAV, and Premium/Discount."""
+        from app import api_etf_dashboard
+        
+        # Test with default hot ETFs
+        res = api_etf_dashboard()
+        self.assertIn("etfs", res)
+        self.assertIn("bullishMaRatio", res)
+        self.assertIn("positiveMacdRatio", res)
+        self.assertIn("bullishKdRatio", res)
+        self.assertIn("averageRsi", res)
+        self.assertIn("averagePremiumDiscount", res)
+        self.assertGreater(res["etfCount"], 0, "ETF count should be greater than 0")
+
+        # Test with specific custom codes
+        custom_res = api_etf_dashboard(codes="0050,0056,00878")
+        self.assertEqual(custom_res["etfCount"], 3)
+        codes = [item["code"] for item in custom_res["etfs"]]
+        self.assertIn("0050", codes)
+        self.assertIn("0056", codes)
+        self.assertIn("00878", codes)
+
+        first_etf = custom_res["etfs"][0]
+        # Check MA
+        self.assertIn("ma", first_etf)
+        self.assertIn("ma5", first_etf["ma"])
+        self.assertIn("ma20", first_etf["ma"])
+        self.assertIn("ma60", first_etf["ma"])
+        self.assertIn("status", first_etf["ma"])
+        self.assertIn("label", first_etf["ma"])
+
+        # Check MACD
+        self.assertIn("macd", first_etf)
+        self.assertIn("bar", first_etf["macd"])
+        self.assertIn("status", first_etf["macd"])
+        self.assertIn("dif", first_etf["macd"])
+        self.assertIn("dea", first_etf["macd"])
+
+        # Check KD
+        self.assertIn("kd", first_etf)
+        self.assertIn("k", first_etf["kd"])
+        self.assertIn("d", first_etf["kd"])
+        self.assertIn("cross", first_etf["kd"])
+        self.assertIn("crossLabel", first_etf["kd"])
+        self.assertIn("zone", first_etf["kd"])
+
+        # Check RSI
+        self.assertIn("rsi", first_etf)
+        self.assertIn("rsi6", first_etf["rsi"])
+
+        # Check ETF NAV & Premium/Discount & Units
+        self.assertIn("etf", first_etf)
+        self.assertIn("nav", first_etf["etf"])
+        self.assertIn("prevNav", first_etf["etf"])
+        self.assertIn("issuedUnits", first_etf["etf"])
+        self.assertIn("diffUnits", first_etf["etf"])
+        self.assertIn("refUrl", first_etf["etf"])
+        self.assertIn("premiumDiscountPercent", first_etf["etf"])
+        self.assertIn("status", first_etf["etf"])
+        self.assertIn("label", first_etf["etf"])
+        self.assertGreater(first_etf["etf"]["nav"], 0, "ETF NAV should be positive")
+
+        print(f"[Test 11 Passed] Custom ETF dashboard API successfully validated with {custom_res['etfCount']} ETFs. NAV: {first_etf['etf']['nav']}, Prem: {first_etf['etf']['premiumDiscountPercent']}%, Units: {first_etf['etf']['issuedUnits']}")
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -276,6 +276,264 @@ def api_dashboard_summary():
         "stocks": results
     }
 
+@app.get("/api/etf_dashboard")
+def api_etf_dashboard(codes: str = None):
+    """
+    Returns real-time technical & fundamental metrics for custom/hot ETFs:
+    MA5/MA20/MA60 alignment, MACD momentum, KD (9,3,3) cross & status,
+    RSI (6) level, real-time Net Asset Value (NAV), and Premium/Discount.
+    """
+    default_hot_etfs = [
+        "0050", "0056", "00878", "00919", "00929", "006208",
+        "00713", "00940", "00679B", "00687B", "00937B", "00757"
+    ]
+
+    if isinstance(codes, str) and codes.strip():
+        etf_codes = [c.strip().upper() for c in codes.split(",") if c.strip()]
+    else:
+        etf_codes = default_hot_etfs
+
+    from etf_analyzer import fetch_all_etf_map, evaluate_etf_timing
+    all_etf_map = fetch_all_etf_map()
+
+    results = []
+    bullish_ma_count = 0
+    positive_macd_count = 0
+    bullish_kd_count = 0
+    discount_count = 0
+    total_rsi = 0.0
+    rsi_count = 0
+    total_prem_disc = 0.0
+    prem_disc_count = 0
+
+    for code in etf_codes:
+        clean_code = code.split(".")[0].strip()
+        data = fetch_stock_chart_data(clean_code, interval="1d", time_range="6mo", use_cache=True)
+        if "error" in data or not data.get("candles"):
+            continue
+
+        candles = data["candles"]
+        ind = calculate_indicators(candles)
+        summary = data["summary"]
+        diag = diagnose_stock(candles, ind)
+
+        # Real-time ETF info from MIS (NAV, Premium/Discount, Units)
+        etf_mis = all_etf_map.get(clean_code, {})
+        nav = etf_mis.get("nav", 0.0)
+        prev_nav = etf_mis.get("prevNav", 0.0)
+        market_price = summary.get("regularMarketPrice", 0.0)
+
+        # If MIS has real-time marketPrice, prioritize it if valid
+        if etf_mis.get("marketPrice") and etf_mis["marketPrice"] > 0:
+            mis_market_price = etf_mis["marketPrice"]
+        else:
+            mis_market_price = market_price
+
+        effective_nav = nav if nav > 0 else prev_nav
+
+        diff = etf_mis.get("diff", 0.0)
+        prem_disc_pct = etf_mis.get("premiumDiscountPercent", 0.0)
+        if effective_nav > 0 and (diff == 0.0 or prem_disc_pct == 0.0) and mis_market_price > 0:
+            diff = round(mis_market_price - effective_nav, 2)
+            prem_disc_pct = round((diff / effective_nav) * 100, 2)
+
+        # Premium / Discount Status evaluation
+        if prem_disc_pct < -0.4:
+            prem_status = "deep_discount"
+            prem_label = f"大幅折價 ({prem_disc_pct}%)"
+            discount_count += 1
+        elif prem_disc_pct < -0.1:
+            prem_status = "mild_discount"
+            prem_label = f"輕微折價 ({prem_disc_pct}%)"
+            discount_count += 1
+        elif prem_disc_pct <= 0.3:
+            prem_status = "fair"
+            prem_label = f"合理區間 ({'+' if prem_disc_pct > 0 else ''}{prem_disc_pct}%)"
+        elif prem_disc_pct <= 0.8:
+            prem_status = "mild_premium"
+            prem_label = f"偏高溢價 (+{prem_disc_pct}%)"
+        else:
+            prem_status = "danger_premium"
+            prem_label = f"⚠️ 嚴重溢價 (+{prem_disc_pct}%)"
+
+        if effective_nav > 0:
+            total_prem_disc += prem_disc_pct
+            prem_disc_count += 1
+
+        # 1. Moving Averages (MA5, MA20, MA60)
+        ma5_val = ind.get("ma", {}).get("ma5", [{}])[-1].get("value") if ind.get("ma", {}).get("ma5") else None
+        ma20_val = ind.get("ma", {}).get("ma20", [{}])[-1].get("value") if ind.get("ma", {}).get("ma20") else None
+        ma60_val = ind.get("ma", {}).get("ma60", [{}])[-1].get("value") if ind.get("ma", {}).get("ma60") else None
+
+        ma_status = "neutral"
+        ma_label = "均線糾結"
+        if ma5_val and ma20_val and ma60_val:
+            if ma5_val > ma20_val > ma60_val:
+                ma_status = "bullish"
+                ma_label = "多頭排列 (MA5 > MA20 > MA60)"
+                bullish_ma_count += 1
+            elif ma5_val < ma20_val < ma60_val:
+                ma_status = "bearish"
+                ma_label = "空頭排列 (MA5 < MA20 < MA60)"
+            elif summary["regularMarketPrice"] > ma20_val:
+                ma_status = "above_ma20"
+                ma_label = "站上月線 (Price > MA20)"
+        elif ma5_val and ma20_val:
+            if ma5_val > ma20_val:
+                ma_status = "bullish"
+                ma_label = "短期偏多 (MA5 > MA20)"
+            elif ma5_val < ma20_val:
+                ma_status = "bearish"
+                ma_label = "短期偏空 (MA5 < MA20)"
+
+        # 2. MACD (12, 26, 9)
+        macd_bar = ind.get("macd", {}).get("bar", [])
+        macd_val = macd_bar[-1]["value"] if macd_bar else 0.0
+        macd_prev = macd_bar[-2]["value"] if len(macd_bar) > 1 else 0.0
+        macd_status = (
+            "red_expand" if macd_val > 0 and macd_val >= macd_prev
+            else ("red_contract" if macd_val > 0
+            else ("green_contract" if macd_val > macd_prev
+            else "green_expand"))
+        )
+        if macd_val > 0:
+            positive_macd_count += 1
+
+        # 3. KD (9, 3, 3)
+        kd_k_list = ind.get("kd", {}).get("k", [])
+        kd_d_list = ind.get("kd", {}).get("d", [])
+        k_val = kd_k_list[-1]["value"] if kd_k_list else 50.0
+        d_val = kd_d_list[-1]["value"] if kd_d_list else 50.0
+        prev_k = kd_k_list[-2]["value"] if len(kd_k_list) > 1 else k_val
+        prev_d = kd_d_list[-2]["value"] if len(kd_d_list) > 1 else d_val
+
+        if prev_k <= prev_d and k_val > d_val:
+            kd_cross = "golden_cross"
+            kd_cross_label = "🔥 黃金交叉 (K穿D)"
+            kd_is_bullish = True
+        elif prev_k >= prev_d and k_val < d_val:
+            kd_cross = "death_cross"
+            kd_cross_label = "⚠️ 死亡交叉 (K破D)"
+            kd_is_bullish = False
+        elif k_val > d_val:
+            kd_cross = "k_above_d"
+            kd_cross_label = "多方佔優 (K > D)"
+            kd_is_bullish = True
+        else:
+            kd_cross = "k_below_d"
+            kd_cross_label = "空方偏弱 (K < D)"
+            kd_is_bullish = False
+
+        if kd_is_bullish:
+            bullish_kd_count += 1
+
+        if k_val >= 80 and d_val >= 80:
+            kd_zone = "overbought"
+            kd_zone_label = "高檔超買 (>80)"
+        elif k_val <= 20 and d_val <= 20:
+            kd_zone = "oversold"
+            kd_zone_label = "低檔超賣 (<20)"
+        else:
+            kd_zone = "neutral"
+            kd_zone_label = "常態整理區"
+
+        # 4. RSI (6, 12)
+        rsi6_list = ind.get("rsi", {}).get("rsi6", [])
+        rsi12_list = ind.get("rsi", {}).get("rsi12", [])
+        rsi6_val = rsi6_list[-1]["value"] if rsi6_list else 50.0
+        rsi12_val = rsi12_list[-1]["value"] if rsi12_list else 50.0
+        total_rsi += rsi6_val
+        rsi_count += 1
+
+        rsi_status = "overbought" if rsi6_val > 75 else ("oversold" if rsi6_val < 25 else ("bull_zone" if rsi6_val >= 55 else "neutral"))
+
+        # 5. Timing evaluation combining ETF factors
+        merged_etf_info = {
+            "code": clean_code,
+            "name": summary["name"],
+            "marketPrice": mis_market_price,
+            "nav": effective_nav,
+            "prevNav": prev_nav,
+            "diff": diff,
+            "premiumDiscountPercent": prem_disc_pct,
+            "spreadPercent": etf_mis.get("spreadPercent", 0.05)
+        }
+        timing = evaluate_etf_timing(merged_etf_info, candles, ind)
+
+        results.append({
+            "code": summary["code"],
+            "name": summary["name"],
+            "market": summary["market"],
+            "industry": summary["industry"],
+            "price": summary["regularMarketPrice"],
+            "change": summary["change"],
+            "changePercent": summary["changePercent"],
+            "volumeLots": summary["volumeLots"],
+            "etf": {
+                "nav": effective_nav,
+                "prevNav": prev_nav,
+                "diff": diff,
+                "premiumDiscountPercent": prem_disc_pct,
+                "issuedUnits": etf_mis.get("issuedUnits", ""),
+                "diffUnits": etf_mis.get("diffUnits", ""),
+                "refUrl": etf_mis.get("refUrl", ""),
+                "status": prem_status,
+                "label": prem_label,
+                "date": etf_mis.get("date", ""),
+                "time": etf_mis.get("time", "")
+            },
+            "ma": {
+                "ma5": ma5_val,
+                "ma20": ma20_val,
+                "ma60": ma60_val,
+                "status": ma_status,
+                "label": ma_label
+            },
+            "macd": {
+                "bar": macd_val,
+                "isPositive": macd_val > 0,
+                "status": macd_status,
+                "dif": (ind.get("macd", {}).get("dif") or [{}])[-1].get("value", 0.0),
+                "dea": (ind.get("macd", {}).get("dea") or [{}])[-1].get("value", 0.0)
+            },
+            "kd": {
+                "k": k_val,
+                "d": d_val,
+                "cross": kd_cross,
+                "crossLabel": kd_cross_label,
+                "zone": kd_zone,
+                "zoneLabel": kd_zone_label,
+                "isBullish": kd_is_bullish
+            },
+            "rsi": {
+                "rsi6": rsi6_val,
+                "rsi12": rsi12_val,
+                "status": rsi_status
+            },
+            "timing": timing,
+            "score": timing.get("score", diag.get("score", 50)),
+            "action": timing.get("action", diag.get("rating", "中立整理")),
+            "actionColor": timing.get("actionColor", "#b0bec5")
+        })
+
+    valid_count = len(results) or 1
+    avg_rsi = round(total_rsi / rsi_count, 1) if rsi_count else 50.0
+    avg_prem = round(total_prem_disc / prem_disc_count, 2) if prem_disc_count else 0.0
+    ma_pct = round((bullish_ma_count / valid_count) * 100, 1)
+    macd_pct = round((positive_macd_count / valid_count) * 100, 1)
+    kd_pct = round((bullish_kd_count / valid_count) * 100, 1)
+
+    return {
+        "etfCount": len(results),
+        "bullishMaRatio": ma_pct,
+        "positiveMacdRatio": macd_pct,
+        "bullishKdRatio": kd_pct,
+        "averageRsi": avg_rsi,
+        "averagePremiumDiscount": avg_prem,
+        "discountCount": discount_count,
+        "etfs": results
+    }
+
 @app.post("/api/upload_csv")
 async def api_upload_csv(file: UploadFile = File(...)):
     """Upload and parse custom CSV file"""

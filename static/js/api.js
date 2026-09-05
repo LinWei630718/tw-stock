@@ -92,6 +92,21 @@ const API = {
     }
   },
 
+  async getEtfDashboard(codes = null) {
+    try {
+      let url = "/api/etf_dashboard";
+      if (codes) {
+        url += `?codes=${encodeURIComponent(codes)}`;
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("無法取得自選 ETF 看板數據");
+      return await res.json();
+    } catch (err) {
+      console.error("ETF Dashboard API Error:", err);
+      throw err;
+    }
+  },
+
   async uploadCSV(file) {
     const formData = new FormData();
     formData.append("file", file);

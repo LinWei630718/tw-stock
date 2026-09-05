@@ -53,44 +53,66 @@ def fetch_all_etf_map() -> Dict[str, Dict[str, Any]]:
             raw_text = resp.read().decode("utf-8")
             data = json.loads(raw_text)
 
+        def _safe_float(val, default=0.0) -> float:
+            if val is None:
+                return default
+            s = str(val).replace(",", "").strip()
+            if not s or s == "-":
+                return default
+            try:
+                return float(s)
+            except Exception:
+                return default
+
         for group in data.get("a1", []):
+            ref_url = str(group.get("refURL", "")).strip()
             for m in group.get("msgArray", []):
                 code = str(m.get("a", "")).strip()
                 if not code:
                     continue
 
-                # Parse estimated NAV, market price, premium/discount
-                # e: market price, f: diff / premium amount, g: premium/discount %, h: estimated NAV, i: date, j: time
-                try:
-                    market_price = float(m.get("e", 0.0))
-                except Exception:
-                    market_price = 0.0
+                # Official TWSE ETF Disclosure Section Field Definitions:
+                # e: 市價 (Market Price)
+                # f: 即時估計淨值 (Real-time Estimated NAV)
+                # g: 估計折溢價比率 % (Estimated Premium/Discount %)
+                # h: 前一日公告每受益權單位淨資產價值 / 前日淨值 (Previous Day NAV)
+                # c: 已發行受益權單位總數 (Issued Units)
+                # d: 發行單位增減數 (Diff Units)
+                # i: 淨值計算日期 (Date)
+                # j: 淨值計算時間 (Time)
+                market_price = _safe_float(m.get("e", 0.0))
+                est_nav = _safe_float(m.get("f", 0.0))     # f is real-time estimated NAV!
+                prev_nav = _safe_float(m.get("h", 0.0))    # h is previous day final NAV!
+                effective_nav = est_nav if est_nav > 0 else prev_nav
 
-                try:
-                    est_nav = float(m.get("h", 0.0))
-                except Exception:
-                    est_nav = 0.0
+                # Official premium/discount rate from TWSE MIS (g)
+                prem_disc_pct = _safe_float(m.get("g", 0.0))
 
-                try:
-                    diff = float(m.get("f", 0.0))
-                except Exception:
-                    diff = round(market_price - est_nav, 2) if (market_price and est_nav) else 0.0
-
-                try:
-                    prem_disc_pct = float(m.get("g", 0.0))
-                except Exception:
-                    prem_disc_pct = round((diff / est_nav) * 100, 2) if est_nav > 0 else 0.0
+                # Real-time difference amount = market price - effective NAV
+                if market_price > 0 and effective_nav > 0:
+                    diff = round(market_price - effective_nav, 2)
+                    if prem_disc_pct == 0.0 and diff != 0.0:
+                        prem_disc_pct = round((diff / effective_nav) * 100, 2)
+                else:
+                    diff = 0.0
 
                 raw_name = str(m.get("b", "")).strip()
                 clean_name = raw_name.split("(")[0].split("（")[0].strip()
+
+                issued_units = str(m.get("c", "")).strip()
+                diff_units = str(m.get("d", "")).strip()
 
                 etf_map[code] = {
                     "code": code,
                     "name": clean_name,
                     "marketPrice": market_price,
-                    "nav": est_nav,
+                    "nav": effective_nav,
+                    "prevNav": prev_nav,
                     "diff": diff,
                     "premiumDiscountPercent": prem_disc_pct,
+                    "issuedUnits": issued_units,
+                    "diffUnits": diff_units,
+                    "refUrl": ref_url,
                     "date": m.get("i", ""),
                     "time": m.get("j", "")
                 }
@@ -350,8 +372,12 @@ def get_complete_etf_analysis(
             "name": f"ETF {code_clean}",
             "marketPrice": 0.0,
             "nav": 0.0,
+            "prevNav": 0.0,
             "diff": 0.0,
             "premiumDiscountPercent": 0.0,
+            "issuedUnits": "",
+            "diffUnits": "",
+            "refUrl": "",
             "date": "",
             "time": ""
         }

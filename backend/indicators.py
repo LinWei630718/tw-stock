@@ -146,10 +146,17 @@ def calculate_indicators(candles: List[Dict[str, Any]]) -> Dict[str, Any]:
         result = []
         for i in range(period, n):
             val = rsi_series.iloc[i]
-            if pd.notna(val):
+            if pd.notna(val) and not np.isinf(val):
                 result.append({"time": times[i], "value": round(float(val), 2)})
-            elif pd.isna(val) and gain.iloc[i] == 0 and loss.iloc[i] == 0:
-                result.append({"time": times[i], "value": 50.0})
+            elif np.isinf(val):
+                result.append({"time": times[i], "value": 100.0 if val > 0 else 0.0})
+            elif pd.isna(val):
+                if gain.iloc[i] == 0 and loss.iloc[i] == 0:
+                    result.append({"time": times[i], "value": 50.0})
+                elif loss.iloc[i] == 0 and gain.iloc[i] > 0:
+                    result.append({"time": times[i], "value": 100.0})
+                elif gain.iloc[i] == 0 and loss.iloc[i] > 0:
+                    result.append({"time": times[i], "value": 0.0})
         return result
 
     rsi6 = calc_rsi(6)

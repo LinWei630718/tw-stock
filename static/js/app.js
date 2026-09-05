@@ -42,6 +42,12 @@ document.addEventListener("DOMContentLoaded", () => {
     loadStock(code);
   });
 
+  // ETF Dashboard UI
+  const etfDashboardUI = new EtfDashboardUI("etf-dashboard-view-container", (code) => {
+    switchView("chart");
+    loadStock(code);
+  });
+
   // CSV Loader
   const csvLoader = new CSVLoader((res) => {
     switchView("chart");
@@ -60,22 +66,34 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadingOverlay = document.getElementById("loading-overlay");
   const btnNavChart = document.getElementById("btn-nav-chart");
   const btnNavDash = document.getElementById("btn-nav-dash");
+  const btnNavEtf = document.getElementById("btn-nav-etf");
   const chartViewWrapper = document.getElementById("chart-view-wrapper");
   const dashboardViewContainer = document.getElementById("dashboard-view-container");
+  const etfDashboardViewContainer = document.getElementById("etf-dashboard-view-container");
 
   // View Switcher Function
   function switchView(view) {
+    // Reset all nav buttons
+    if (btnNavChart) btnNavChart.classList.remove("active");
+    if (btnNavDash) btnNavDash.classList.remove("active");
+    if (btnNavEtf) btnNavEtf.classList.remove("active");
+
+    // Hide all view containers
+    if (chartViewWrapper) chartViewWrapper.style.display = "none";
+    if (dashboardViewContainer) dashboardViewContainer.classList.remove("active");
+    if (etfDashboardViewContainer) etfDashboardViewContainer.classList.remove("active");
+
     if (view === "dash") {
-      btnNavChart.classList.remove("active");
-      btnNavDash.classList.add("active");
-      chartViewWrapper.style.display = "none";
-      dashboardViewContainer.classList.add("active");
+      if (btnNavDash) btnNavDash.classList.add("active");
+      if (dashboardViewContainer) dashboardViewContainer.classList.add("active");
       dashboardUI.load();
+    } else if (view === "etf") {
+      if (btnNavEtf) btnNavEtf.classList.add("active");
+      if (etfDashboardViewContainer) etfDashboardViewContainer.classList.add("active");
+      etfDashboardUI.load();
     } else {
-      btnNavDash.classList.remove("active");
-      btnNavChart.classList.add("active");
-      dashboardViewContainer.classList.remove("active");
-      chartViewWrapper.style.display = "flex";
+      if (btnNavChart) btnNavChart.classList.add("active");
+      if (chartViewWrapper) chartViewWrapper.style.display = "flex";
       // Force charts resize
       setTimeout(() => {
         window.dispatchEvent(new Event("resize"));
@@ -85,6 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnNavChart) btnNavChart.addEventListener("click", () => switchView("chart"));
   if (btnNavDash) btnNavDash.addEventListener("click", () => switchView("dash"));
+  if (btnNavEtf) btnNavEtf.addEventListener("click", () => switchView("etf"));
 
   // Mobile Bottom Navigation Switcher
   const mobileNavBtns = document.querySelectorAll(".mobile-nav-btn");
@@ -111,6 +130,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tab === "dash") {
         resetMobilePanels();
         switchView("dash");
+      } else if (tab === "etf") {
+        resetMobilePanels();
+        switchView("etf");
       } else {
         switchView("chart");
         if (tab === "chart") {

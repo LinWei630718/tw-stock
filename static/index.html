@@ -33,7 +33,7 @@
       </div>
     </div>
 
-    <!-- View Switcher (Chart Pro vs Dashboard) -->
+    <!-- View Switcher (Chart Pro vs Dashboard vs Custom ETF) -->
     <div class="view-nav-group">
       <button id="btn-nav-chart" class="view-nav-btn active">
         <span>📈</span>
@@ -42,6 +42,10 @@
       <button id="btn-nav-dash" class="view-nav-btn">
         <span>📊</span>
         <span>綜合看板</span>
+      </button>
+      <button id="btn-nav-etf" class="view-nav-btn">
+        <span>🪙</span>
+        <span>自選ETF</span>
       </button>
     </div>
 
@@ -290,6 +294,11 @@
     <!-- Populated dynamically by DashboardUI -->
   </div>
 
+  <!-- ==================== VIEW 3: ETF DASHBOARD (自選ETF實時看板) ==================== -->
+  <div id="etf-dashboard-view-container" class="dashboard-view-container">
+    <!-- Populated dynamically by EtfDashboardUI -->
+  </div>
+
   <!-- ==================== CSV IMPORT MODAL (CSV 匯入彈窗) ==================== -->
   <div id="csv-modal" class="modal-backdrop">
     <div class="modal-dialog">
@@ -354,6 +363,10 @@
       <span class="nav-icon">📊</span>
       <span class="nav-label">看板</span>
     </button>
+    <button class="mobile-nav-btn" data-tab="etf">
+      <span class="nav-icon">🪙</span>
+      <span class="nav-label">ETF</span>
+    </button>
   </nav>
 
   <!-- Application Logic Scripts -->
@@ -366,6 +379,7 @@
   <script src="/static/js/watchlist.js"></script>
   <script src="/static/js/csv_loader.js"></script>
   <script src="/static/js/dashboard_ui.js"></script>
+  <script src="/static/js/etf_dashboard_ui.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>
