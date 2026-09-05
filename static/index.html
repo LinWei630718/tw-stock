@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>台灣股票技術分析與策略診斷系統 | TW Stock Pro</title>
+  <meta name="description" content="專業級台灣股票技術分析系統，提供台股上市上櫃K線圖、MA5/MA20/MA60均線、布林通道、KD、MACD、RSI、CSV匯入與Dashboard綜合技術看板。">
+  
+  <!-- Google Fonts: Outfit, Inter, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+  <!-- Local Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+  
+  <!-- TradingView Lightweight Charts Library (Vendored locally for 100% offline reliability) -->
+  <script src="/static/lib/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+  <!-- Top Application Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-icon">📈</div>
+      <div>
+        <div class="brand-title">TW Stock Pro · 台股技術分析系統</div>
+      </div>
+      <div class="market-badge">
+        <span class="pulse-dot"></span>
+        <span>TWSE / TPEx 行情連線</span>
+      </div>
+    </div>
+
+    <!-- View Switcher (Chart Pro vs Dashboard) -->
+    <div class="view-nav-group">
+      <button id="btn-nav-chart" class="view-nav-btn active">
+        <span>📈</span>
+        <span>專業圖表</span>
+      </button>
+      <button id="btn-nav-dash" class="view-nav-btn">
+        <span>📊</span>
+        <span>綜合看板</span>
+      </button>
+    </div>
+
+    <!-- Stock Search Bar & Quick Chips -->
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" class="search-input" placeholder="搜尋股票代號或名稱 (如: 2330, 台積電, 0050)..." autocomplete="off">
+          <span class="search-shortcut">/</span>
+        </div>
+        <div id="search-dropdown" class="search-dropdown"></div>
+      </div>
+
+      <!-- Quick Chips for Popular Stocks -->
+      <div class="quick-chips-row">
+        <span class="quick-chip" data-code="2330">2330 台積電</span>
+        <span class="quick-chip" data-code="2317">2317 鴻海</span>
+        <span class="quick-chip" data-code="2454">2454 聯發科</span>
+        <span class="quick-chip" data-code="0050">0050 台灣50</span>
+        <span class="quick-chip" data-code="2603">2603 長榮</span>
+        <span class="quick-chip" data-code="2382">2382 廣達</span>
+        <span class="quick-chip" data-code="8069">8069 元太</span>
+      </div>
+    </div>
+
+    <!-- Header Controls (CSV Import & Color Toggle) -->
+    <div class="header-controls">
+      <button id="btn-open-csv-modal" class="color-toggle-btn" title="匯入自訂股票歷史 CSV 檔案進行技術分析">
+        <span>📥</span>
+        <span>匯入 CSV</span>
+      </button>
+
+      <button id="color-toggle-btn" class="color-toggle-btn" title="切換紅漲綠跌或國際配色">
+        <span>🇹🇼</span>
+        <span>台股 (紅漲綠跌)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== VIEW 1: CHART PRO (專業圖表視圖) ==================== -->
+  <div id="chart-view-wrapper" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+
+    <!-- Stock Ticker Quote Header -->
+    <section class="ticker-bar">
+      <div class="ticker-left">
+        <div class="stock-title-group">
+          <div class="stock-headline">
+            <span id="stock-name" class="stock-name">載入中...</span>
+            <span id="stock-code" class="stock-code">----</span>
+            <button id="watchlist-pin-btn" class="watchlist-toggle-btn" title="加入自選股">☆</button>
+          </div>
+          <div class="stock-tags">
+            <span id="stock-market" class="badge-tag">TWSE</span>
+            <span id="stock-industry" class="badge-tag">半導體業</span>
+            <span id="stock-pe" class="badge-tag pe-tag" title="官方每日公布本益比">PE --</span>
+            <span id="stock-pb" class="badge-tag pb-tag" title="官方每日公布股價淨值比">PB --</span>
+            <span id="stock-yield" class="badge-tag yield-tag" title="官方每日公布現金殖利率">殖利率 --%</span>
+            <span id="stock-trust-tag" class="badge-tag trust-tag" style="display:none;">🔥 投信作帳認養</span>
+            <!-- ETF Specific Badges -->
+            <span id="stock-etf-prem" class="badge-tag etf-prem-tag" style="display:none;" title="即時估計折溢價比率 (市價 vs 淨值)">折溢價 --%</span>
+            <span id="stock-etf-nav" class="badge-tag etf-nav-tag" style="display:none;" title="官方發布即時估計淨值 (NAV)">淨值 -- 元</span>
+            <span id="stock-etf-spread" class="badge-tag etf-spread-tag" style="display:none;" title="最佳買賣委託價差與摩擦成本">價差 --</span>
+            <span class="limit-tag limit-up-tag">漲停 <span id="limit-up-price">----</span></span>
+            <span class="limit-tag limit-down-tag">跌停 <span id="limit-down-price">----</span></span>
+          </div>
+        </div>
+
+        <div class="price-display-group">
+          <div id="current-price" class="current-price up-text">----</div>
+          <div class="price-change-box up-text">
+            <span id="price-change">--</span>
+            <span id="price-change-pct">(--%)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ticker-metrics">
+        <div class="metric-item">
+          <span class="metric-label">成交張數</span>
+          <span id="metric-volume-lots" class="metric-value">-- 張</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">三大法人買賣超</span>
+          <span id="metric-inst-total" class="metric-value">-- 張</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">外資 / 投信買賣超</span>
+          <span class="metric-value"><span id="metric-foreign-lots">--</span> / <span id="metric-trust-lots">--</span></span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">最高 / 最低</span>
+          <span class="metric-value"><span id="metric-high">--</span> / <span id="metric-low">--</span></span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">開盤 / 昨收</span>
+          <span class="metric-value"><span id="metric-open">--</span> / <span id="metric-prev-close">--</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Timeframe & Overlay Toolbar -->
+    <section class="chart-toolbar">
+      <!-- Timeframes -->
+      <div class="toolbar-group">
+        <span class="group-label">週期:</span>
+        <button class="btn-pill timeframe-btn" data-interval="5m">5分K</button>
+        <button class="btn-pill timeframe-btn" data-interval="15m">15分K</button>
+        <button class="btn-pill timeframe-btn" data-interval="60m">60分K</button>
+        <button class="btn-pill timeframe-btn active" data-interval="1d">日K</button>
+        <button class="btn-pill timeframe-btn" data-interval="1wk">週K</button>
+        <button class="btn-pill timeframe-btn" data-interval="1mo">月K</button>
+      </div>
+
+      <!-- Core Moving Averages (MA5 / MA20 / MA60) Prominent Controls -->
+      <div class="toolbar-group">
+        <span class="group-label" style="color:var(--color-accent); font-weight:700;">★ 核心均線:</span>
+        <label class="overlay-checkbox-label" style="font-weight:700;">
+          <input type="checkbox" class="overlay-checkbox" data-overlay="ma5" checked>
+          <span class="color-dot" style="background:#fadb14;"></span>
+          <span style="color:#fadb14;">MA5 (週)</span>
+        </label>
+        <label class="overlay-checkbox-label" style="font-weight:700;">
+          <input type="checkbox" class="overlay-checkbox" data-overlay="ma20" checked>
+          <span class="color-dot" style="background:#13c2c2;"></span>
+          <span style="color:#13c2c2;">MA20 (月)</span>
+        </label>
+        <label class="overlay-checkbox-label" style="font-weight:700;">
+          <input type="checkbox" class="overlay-checkbox" data-overlay="ma60" checked>
+          <span class="color-dot" style="background:#722ed1;"></span>
+          <span style="color:#b37feb;">MA60 (季)</span>
+        </label>
+
+        <!-- MA Status Tag -->
+        <span id="ma-alignment-badge" class="ma-prominent-tag bull" style="margin-left:4px;">
+          多頭排列 (MA5 > MA20 > MA60)
+        </span>
+      </div>
+
+      <!-- Extended Overlays -->
+      <div class="toolbar-group">
+        <span class="group-label">輔助通道:</span>
+        <label class="overlay-checkbox-label">
+          <input type="checkbox" class="overlay-checkbox" data-overlay="ma10">
+          <span class="color-dot" style="background:#fa8c16;"></span>
+          <span>MA10</span>
+        </label>
+        <label class="overlay-checkbox-label">
+          <input type="checkbox" class="overlay-checkbox" data-overlay="ma120">
+          <span class="color-dot" style="background:#eb2f96;"></span>
+          <span>MA120</span>
+        </label>
+        <label class="overlay-checkbox-label">
+          <input type="checkbox" class="overlay-checkbox" data-overlay="ma240">
+          <span class="color-dot" style="background:#52c41a;"></span>
+          <span>MA240</span>
+        </label>
+        <label class="overlay-checkbox-label" style="margin-left: 6px;">
+          <input type="checkbox" class="overlay-checkbox" data-overlay="bb">
+          <span class="color-dot" style="background:rgba(24, 144, 255, 0.8);"></span>
+          <span>布林通道 (20, 2)</span>
+        </label>
+        <label class="overlay-checkbox-label" style="margin-left: 6px; font-weight: 600; color: #52c41a;">
+          <input type="checkbox" id="fibonacci-toggle" class="overlay-checkbox">
+          <span class="color-dot" style="background:#52c41a;"></span>
+          <span>📐 支撐壓力 (Fib)</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Main Workstation Layout -->
+    <main class="workspace-container">
+
+      <!-- Left Sidebar: Watchlist & Categories -->
+      <aside class="left-sidebar">
+        <div class="panel-tabs">
+          <button class="panel-tab-btn left-tab-btn active" data-target="watchlist-tab-content">⭐ 我的自選</button>
+          <button class="panel-tab-btn left-tab-btn" data-target="categories-tab-content">🏢 熱門族群</button>
+        </div>
+
+        <div id="watchlist-tab-content" class="tab-content left-tab-content active">
+          <div id="watchlist-items-box"></div>
+        </div>
+
+        <div id="categories-tab-content" class="tab-content left-tab-content">
+          <div id="categories-items-box"></div>
+        </div>
+      </aside>
+
+      <!-- Center Stage: Charts -->
+      <section class="center-stage">
+        <!-- Crosshair Legend Bar -->
+        <div id="chart-legend-box" class="chart-header-legend">
+          <div class="legend-item"><span class="legend-label">數據連線中...</span></div>
+        </div>
+
+        <!-- Main Candlestick Chart -->
+        <div id="main-chart-container" class="main-chart-wrapper"></div>
+
+        <!-- Sub-Indicator Toolbar (With Prominent MACD and RSI) -->
+        <div class="sub-chart-toolbar">
+          <span class="group-label">副圖指標:</span>
+          <button class="btn-pill sub-tab-btn" data-indicator="volume">📊 成交量 (Volume)</button>
+          <button class="btn-pill sub-tab-btn" data-indicator="institutional">🏛️ 三大法人 (Flow)</button>
+          <button class="btn-pill sub-tab-btn active" data-indicator="macd">🌊 MACD (12, 26, 9)</button>
+          <button class="btn-pill sub-tab-btn" data-indicator="rsi">📈 RSI (6, 12)</button>
+          <button class="btn-pill sub-tab-btn" data-indicator="kd">⚡ KD (9, 3, 3)</button>
+          <button class="btn-pill sub-tab-btn" data-indicator="bias">🎯 乖離率 (BIAS 20)</button>
+        </div>
+
+        <!-- Sub-Indicator Chart -->
+        <div id="sub-chart-container" class="sub-chart-wrapper"></div>
+      </section>
+
+      <!-- Right Panel: Diagnostics, Screener & Backtest -->
+      <aside class="right-panel">
+        <div class="panel-tabs">
+          <button class="panel-tab-btn right-tab-btn active" data-target="diagnostic-tab-content">🧭 技術診斷</button>
+          <button class="panel-tab-btn right-tab-btn" data-target="screener-tab-content">🚀 策略選股</button>
+          <button class="panel-tab-btn right-tab-btn" data-target="backtest-tab-content">🧪 策略回測</button>
+        </div>
+
+        <div class="right-panel-body">
+          <!-- Diagnostic Tab -->
+          <div id="diagnostic-tab-content" class="right-tab-content active">
+            <div id="diagnostic-body"></div>
+          </div>
+
+          <!-- Screener Tab -->
+          <div id="screener-tab-content" class="right-tab-content" style="display:none;">
+            <div id="screener-body"></div>
+          </div>
+
+          <!-- Backtest Tab -->
+          <div id="backtest-tab-content" class="right-tab-content" style="display:none;">
+            <div id="backtest-body"></div>
+          </div>
+        </div>
+      </aside>
+
+    </main>
+  </div>
+
+  <!-- ==================== VIEW 2: DASHBOARD (綜合技術看板) ==================== -->
+  <div id="dashboard-view-container" class="dashboard-view-container">
+    <!-- Populated dynamically by DashboardUI -->
+  </div>
+
+  <!-- ==================== CSV IMPORT MODAL (CSV 匯入彈窗) ==================== -->
+  <div id="csv-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📥</span>
+          <span>匯入自訂股票歷史 CSV</span>
+        </div>
+        <button id="csv-modal-close" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="csv-drop-zone" class="csv-drop-zone">
+          <div class="drop-icon">📄</div>
+          <div class="drop-title">點擊或將 CSV 檔案拖曳至此</div>
+          <div class="drop-desc">
+            支援證交所 (TWSE) 匯出檔、各券商軟體、Yahoo Finance 或自訂格式<br>
+            系統自動相容中文欄位 (日期、開盤、最高、最低、收盤、成交量) 與民國年 (113/08/01)
+          </div>
+          <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display:none;">
+        </div>
+
+        <div id="csv-status-msg" style="display:none; font-size:13px; font-weight:600; text-align:center; margin-top:14px;"></div>
+
+        <div class="modal-footer-actions">
+          <button id="csv-load-sample-btn" class="btn-secondary" title="測試系統示範 CSV 資料">
+            ⚡ 載入示範台股 CSV (台積電)
+          </button>
+          <a href="/static/sample_stock.csv" download="sample_tw_stock.csv" class="btn-secondary" style="text-decoration:none;">
+            💾 下載範例格式
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Loading Spinner Overlay -->
+  <div id="loading-overlay" class="spinner-overlay">
+    <div class="spinner"></div>
+    <div style="color:var(--text-primary); font-size:13px; font-weight:600;">載入台股行情數據中...</div>
+  </div>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <nav id="mobile-bottom-nav" class="mobile-bottom-nav">
+    <button class="mobile-nav-btn active" data-tab="chart">
+      <span class="nav-icon">📈</span>
+      <span class="nav-label">圖表</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="diag">
+      <span class="nav-icon">🧭</span>
+      <span class="nav-label">診斷</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="watch">
+      <span class="nav-icon">⭐</span>
+      <span class="nav-label">自選</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="screen">
+      <span class="nav-icon">🚀</span>
+      <span class="nav-label">選股</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="dash">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">看板</span>
+    </button>
+  </nav>
+
+  <!-- Application Logic Scripts -->
+  <script src="/static/js/toast.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/chart_manager.js"></script>
+  <script src="/static/js/diagnostic_ui.js"></script>
+  <script src="/static/js/screener_ui.js"></script>
+  <script src="/static/js/backtest_ui.js"></script>
+  <script src="/static/js/watchlist.js"></script>
+  <script src="/static/js/csv_loader.js"></script>
+  <script src="/static/js/dashboard_ui.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

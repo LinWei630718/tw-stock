@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  tw-stock:
+    build: .
+    container_name: tw_stock_pro
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - NO_BROWSER=1
+    # 限制資源防止突發負載過高（可依伺服器規格調整）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
