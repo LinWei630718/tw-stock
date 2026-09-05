@@ -1,0 +1,57 @@
+name: Build and Push Docker Image to GHCR
+
+on:
+  push:
+    branches: [ "main" ]
+    # 也可在發布 Release tag (如 v1.0.0) 時自動觸發
+    tags: [ 'v*.*.*' ]
+  # 支援在 GitHub 網頁手動點擊按鈕觸發
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  # 映像檔名稱會自動轉換為：ghcr.io/<github-username>/<repo-name>
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 檢出程式碼 (Checkout repository)
+        uses: actions/checkout@v4
+
+      - name: 設定 Docker Buildx (跨平台建置工具)
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登入 GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 擷取 Docker Metadata (標籤與版本)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=sha,format=short
+
+      - name: 建置並推送 Docker 映像檔
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # 啟用快取，讓下次 Build 速度提升 5~10 倍
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
